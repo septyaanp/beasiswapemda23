@@ -1,0 +1,202 @@
+# Notasi dan Implementasi Sistem Enkripsi
+
+## 1. Proses Pembentukan Kunci
+
+### A. Parameter Awal Diffie-Hellman
+```
+P (bilangan prima) = 23
+g (basis/generator) = 5
+Private Key Alice = 6
+Private Key Bob = 15
+```
+
+### B. Pembentukan Public Key
+```
+Public Key Alice = g^private_A mod P
+                = 5^6 mod 23 
+                = 8
+
+Public Key Bob = g^private_B mod P
+               = 5^15 mod 23
+               = 19
+```
+
+### C. Pembentukan Shared Key
+```
+Shared Key = public_B^private_A mod P
+           = 19^6 mod 23
+           = 2
+
+Final Key = SHA256(Shared Key)
+```
+## 2. Alur Proses Enkripsi/Dekripsi Data
+
+```
+1. Inisialisasi
+   ├── Setup parameter Diffie-Hellman (P, g)
+   ├── Generate private keys
+   └── Hitung public keys
+
+2. Pembentukan Shared Key
+   ├── Exchange public keys
+   ├── Calculate shared secret
+   └── Hash dengan SHA-256
+
+3. Proses Enkripsi Data
+   ├── Generate IV random
+   ├── Encrypt dengan Blowfish-CBC
+   └── Encode (IV + encrypted data) ke Base64
+
+4. Penyimpanan ke Database
+   ├── Encrypt data sensitif
+   ├── Prepare SQL statement
+   └── Execute query
+
+5. Proses Pembacaan Data
+   ├── Query database
+   ├── Decode dari Base64
+   ├── Extract IV
+   └── Decrypt data
+```
+
+// ==== DIFFIE-HELLMAN KEY EXCHANGE ==== //
+FUNCTION ModularExponentiation(base, exponent, modulus)
+    result = 1
+    base = base MOD modulus
+    
+    WHILE exponent > 0 DO
+        IF exponent MOD 2 == 1 THEN
+            result = (result * base) MOD modulus
+        ENDIF
+        exponent = FLOOR(exponent / 2)
+        base = (base * base) MOD modulus
+    ENDWHILE
+    
+    RETURN result
+END FUNCTION
+
+// ==== BLOWFISH ENCRYPTION/DECRYPTION ==== //
+FUNCTION BlowfishEncrypt(key, plaintext)
+    iv = GenerateRandomBytes(8)
+    encrypted = BlowfishCBCEncrypt(plaintext, key, iv)
+    RETURN Base64Encode(iv + encrypted)
+END FUNCTION
+
+FUNCTION BlowfishDecrypt(key, ciphertext)
+    decoded = Base64Decode(ciphertext)
+    iv = ExtractFirstBytes(decoded, 8)
+    encrypted = ExtractRemainingBytes(decoded, 8)
+    RETURN BlowfishCBCDecrypt(encrypted, key, iv)
+END FUNCTION
+
+// ==== CRUD OPERATIONS ==== //
+FUNCTION AddUser(connection, sharedKey, userData)
+    // Encrypt sensitive data
+    encryptedData = {
+        ttl: BlowfishEncrypt(sharedKey, userData.ttl),
+        nim: BlowfishEncrypt(sharedKey, userData.nim),
+        nomor_rekening: BlowfishEncrypt(sharedKey, userData.nomor_rekening),
+        nomor_hp: BlowfishEncrypt(sharedKey, userData.nomor_hp)
+    }
+    
+    // Prepare SQL statement
+    query = "INSERT INTO tuser VALUES (...)"
+    ExecutePreparedStatement(query, [
+        userData.nama,
+        userData.jenis_kelamin,
+        encryptedData.ttl,
+        encryptedData.nim,
+        userData.ipk,
+        userData.jurusan,
+        userData.univ,
+        userData.tahun_masuk,
+        encryptedData.nomor_rekening,
+        encryptedData.nomor_hp,
+        userData.ket
+    ])
+END FUNCTION
+
+FUNCTION GetUsers(connection, sharedKey)
+    users = []
+    result = ExecuteQuery("SELECT * FROM tuser")
+    
+    FOR EACH row IN result DO
+        decryptedUser = {
+            id: row.id,
+            nama: row.nama,
+            jenis_kelamin: row.jenis_kelamin,
+            ttl: BlowfishDecrypt(sharedKey, row.ttl),
+            nim: BlowfishDecrypt(sharedKey, row.nim),
+            ipk: row.ipk,
+            jurusan: row.jurusan,
+            univ: row.univ,
+            tahun_masuk: row.tahun_masuk,
+            nomor_rekening: BlowfishDecrypt(sharedKey, row.nomor_rekening),
+            nomor_hp: BlowfishDecrypt(sharedKey, row.nomor_hp),
+            ket: row.ket
+        }
+        APPEND decryptedUser TO users
+    END FOR
+    
+    RETURN users
+END FUNCTION
+
+FUNCTION UpdateUser(connection, sharedKey, id, userData)
+    // Encrypt sensitive data
+    encryptedData = {
+        ttl: BlowfishEncrypt(sharedKey, userData.ttl),
+        nim: BlowfishEncrypt(sharedKey, userData.nim),
+        nomor_rekening: BlowfishEncrypt(sharedKey, userData.nomor_rekening),
+        nomor_hp: BlowfishEncrypt(sharedKey, userData.nomor_hp)
+    }
+    
+    // Prepare SQL statement
+    query = "UPDATE tuser SET ... WHERE id = ?"
+    ExecutePreparedStatement(query, [
+        userData.nama,
+        userData.jenis_kelamin,
+        encryptedData.ttl,
+        encryptedData.nim,
+        userData.ipk,
+        userData.jurusan,
+        userData.univ,
+        userData.tahun_masuk,
+        encryptedData.nomor_rekening,
+        encryptedData.nomor_hp,
+        userData.ket,
+        id
+    ])
+END FUNCTION
+
+FUNCTION DeleteUser(connection, id)
+    query = "DELETE FROM tuser WHERE id = ?"
+    ExecutePreparedStatement(query, [id])
+END FUNCTION
+
+// ==== MAIN PROCESS ==== //
+BEGIN
+    // Setup Diffie-Hellman parameters
+    p = 23  // Prime number
+    g = 5   // Generator
+    privateA = 6
+    privateB = 15
+    
+    // Generate public keys
+    publicA = ModularExponentiation(g, privateA, p)
+    publicB = ModularExponentiation(g, privateB, p)
+    
+    // Generate shared secret
+    sharedSecretA = ModularExponentiation(publicB, privateA, p)
+    sharedSecretB = ModularExponentiation(publicA, privateB, p)
+    
+    // Verify shared secrets match
+    IF sharedSecretA != sharedSecretB THEN
+        RAISE ERROR "Shared secrets do not match"
+    END IF
+    
+    // Generate final encryption key
+    sharedKey = SHA256(sharedSecretA)
+    
+    // Use this shared key for all encryption/decryption operations
+    // in CRUD functions
+END
