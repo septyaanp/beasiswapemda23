@@ -1,6 +1,6 @@
 <?php
 include "koneksi.php";
-include 'encryption/index.php';
+include 'encryption/func.php';
 
 // Fungsi enkripsi data sensitif
 function encryptSensitiveData($sharedKey, $data) {
@@ -61,6 +61,7 @@ function hapusData($koneksi, $id) {
     return mysqli_query($koneksi, $query);
 }
 
+
 // Fungsi ambil data dengan dekripsi (vulnerable version)
 function getDataUser($koneksi, $sharedKey) {
     $query = mysqli_query($koneksi, "SELECT * FROM tuser");
@@ -86,4 +87,5 @@ function getDataUser($koneksi, $sharedKey) {
     
     return $dataUser;
 }
+
 ?>

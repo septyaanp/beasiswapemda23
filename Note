@@ -200,3 +200,64 @@ BEGIN
     // Use this shared key for all encryption/decryption operations
     // in CRUD functions
 END
+
+
+
+### Input
+
+Base Number: 
+
+Prime Modulus: 
+
+Private Keys: 
+
+### Output
+
+Shared Secret Key: 
+
+## Steps
+
+Initialization
+
+Define a prime modulus  and base number .
+
+Each party generates a private key  and .
+
+Key Exchange
+
+Compute public keys:
+
+Exchange  and  between parties.
+
+Shared Key Computation
+
+Each party computes the shared secret key:
+
+Verify: .
+
+Objective
+
+Securely compute a shared secret key  without exposing private keys  and .
+
+Ensure modular exponentiation is optimized for performance.
+
+========================================================================================
+Penjelasan tentang Feistel Network:
+
+Feistel Network tetap digunakan, tapi diimplementasikan di dalam fungsi OpenSSL
+Proses Feistel Network terjadi di dalam openssl_encrypt() yang meliputi:
+
+Pembuatan subkeys dari $sharedKey
+16 putaran Feistel Network
+XOR dan permutasi data
+
+
+
+Alasan tidak mengimplementasi Feistel Network secara manual:
+
+OpenSSL sudah menyediakan implementasi yang aman dan teruji
+Menghindari kesalahan implementasi yang bisa mengurangi keamanan
+Performa lebih baik karena OpenSSL dioptimasi di level bahasa C
+Mode CBC sudah terintegrasi dengan baik dalam OpenSSL
+
+Jadi, Feistel Network tetap digunakan tapi "tersembunyi" dalam fungsi OpenSSL, yang membuat kode lebih sederhana tanpa mengorbankan keamanan.
